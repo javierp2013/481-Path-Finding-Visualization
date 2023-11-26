@@ -4,12 +4,18 @@ import os
 import warnings
 import pygame
 import math
+import time
+import pygame.font
 from videogame import rgbcolors
 from queue import PriorityQueue
+
 # Following basic format for boilerplate code in CPSC 386
 # TODO: Maybe move these functions into the VideoGame class?
 # Create the board and populate arrays with designated Node objects
-# Strategy for creating grid/board referenced here: http://programarcadegames.com/index.php?lang=en&chapter=array_backed_grids 
+# Strategy for creating grid/board referenced here:
+# http://programarcadegames.com/index.php?lang=en&chapter=array_backed_grids 
+MARGIN = 20
+
 def create_board(rows, width):
         board = []
         #determine the nearest whole number for space between nodes
@@ -24,6 +30,9 @@ def create_board(rows, width):
 
 # Use board from previous function to draw to screen using pygame
 def draw_board(rows, width, window):
+    
+
+
     #determine the nearest whole number for space between nodes
     space = math.floor(width / rows)
     for row in range(rows):
@@ -52,6 +61,12 @@ def manhattanDistance(p1, p2):
 	x2, y2 = p2
 	return abs(x1 - x2) + abs(y1 - y2)
 
+def euclideanDistance(p1, p2):
+    x1, y1 = p1
+    x2, y2 = p2
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+
 
 def colorFinalPath(previous, currNode, draw):
 	while currNode in previous:
@@ -59,7 +74,7 @@ def colorFinalPath(previous, currNode, draw):
 		currNode.definePath()
 		draw()
 
-def astarRun(draw, board, start, end):
+def astarRun(draw, board, start, end, distance="manhattan"):
 	count = 0
 	frontier = PriorityQueue()
 	frontier.put((0, count, start))
@@ -70,6 +85,10 @@ def astarRun(draw, board, start, end):
 	heuristic[start] = manhattanDistance(start.getPos(), end.getPos())
     #keep track of items in priority queue
 	frontier_hash = {start}
+ 
+	distanceFunction = manhattanDistance if distance == "manhattan" else euclideanDistance
+
+	heuristic[start] = distanceFunction(start.getPos(), end.getPos())
 
 	while not frontier.empty():
         #2 gets the node since its the 3rd item in that set, preceded by heuristic and count
@@ -88,7 +107,7 @@ def astarRun(draw, board, start, end):
 			if temp_pathCost < pathCost[neighbor]:
 				previous[neighbor] = currNode
 				pathCost[neighbor] = temp_pathCost
-				heuristic[neighbor] = temp_pathCost + manhattanDistance(neighbor.getPos(), end.getPos())
+				heuristic[neighbor] = temp_pathCost + distanceFunction(neighbor.getPos(), end.getPos())				
 				if neighbor not in frontier_hash:
 					count += 1
 					frontier.put((heuristic[neighbor], count, neighbor))
@@ -113,6 +132,12 @@ class VideoGame:
         """Initialize a new game with the given window size and window title."""
         # Borrowed from previous class project.
         pygame.init()
+        pygame.font.init()
+        self.duration_text = None
+        self.font = pygame.font.SysFont('Arial', 20)
+        #used to switch between heurstics 
+        self.distance_method = "manhattan"
+        
         self._window_size = (window_width, window_height)
         self._clock = pygame.time.Clock()
         self._screen = pygame.display.set_mode(self._window_size)
@@ -132,6 +157,8 @@ class VideoGame:
         end = None
         while True:
             draw(window, board, row_num, width)
+            
+            #Input
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -150,17 +177,32 @@ class VideoGame:
                         node.defineWall()
                 
                 if event.type == pygame.KEYDOWN:
+                    #Pressing the D Key switches between manhattan and euclidean 
+                    if event.key == pygame.K_d:
+                        self.distance_method = "euclidean" if self.distance_method == "manhattan" else "manhattan"
                     #only run if the beginning and end are defined.
                     if event.key == pygame.K_SPACE and beginning and end:
+                        start_time = time.time()
                         for row in board:
                             for node in row:
                                 node.defineNeighbors(board)
-                        astarRun(lambda: draw(window, board, row_num, width), board, beginning, end)
-                    
+                        pathFound=astarRun(lambda: draw(window, board, row_num, width), board, beginning, end, distance=self.distance_method)
+                        
+                        duration = time.time() - start_time
+                        if pathFound:
+                            self.duration_text = f"Pathfinding {self.distance_method} took {duration:.2f} seconds"
+                        else:
+                            self.duration_text = "No valid path found!"
 
-
-
-        
+                #draw(window, board, row_num, width) 
+                        
+                
+                
+            if self.duration_text:
+                text_surface = self.font.render(self.duration_text, True, (255, 255, 255))
+                window.blit(text_surface, (5,5))    
+                
+            pygame.display.update()    
 
 class Node:
     def __init__(self,total,width,row,column):
