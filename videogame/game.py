@@ -106,6 +106,7 @@ def astarRun(draw, board, start, end, distance="manhattan"):
 
 	while not frontier.empty():
         #2 gets the node since its the 3rd item in that set, preceded by heuristic and count
+		pygame.event.pump()
 		currNode = frontier.get()[2]
 		frontier_hash.remove(currNode)
         #we're done and can now draw the final path
@@ -183,7 +184,7 @@ class VideoGame:
                     row, col = getMouse(pos, row_num, width)
                     
                     if(row==-1 or col==-1 or row>len(board)-1 or col>len(board[0])-1):
-                        break;
+                        break
                     print(row, col)
           
                     node = board[row][col]
@@ -207,6 +208,8 @@ class VideoGame:
                         for row in board:
                             for node in row:
                                 node.defineNeighbors(board)
+                                if node != beginning and node !=end:
+                                     node.color = rgbcolors.wheat
                         pathFound=astarRun(lambda: draw(window, board, row_num, width), board, beginning, end, distance=self.distance_method)
                         
                         duration = time.time() - start_time
