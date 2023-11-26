@@ -14,7 +14,7 @@ from queue import PriorityQueue
 # Create the board and populate arrays with designated Node objects
 # Strategy for creating grid/board referenced here:
 # http://programarcadegames.com/index.php?lang=en&chapter=array_backed_grids 
-MARGIN = 20
+MARGIN =20
 
 def create_board(rows, width):
         board = []
@@ -32,26 +32,15 @@ def create_board(rows, width):
 def draw_board(rows, width, window):
     
     #determine the nearest whole number for space between nodes
-    
-    #SPACE
-    
-    #HORIZONTAL
-   # x=MARGIN x2=WIDTH-MARGIN
-    #y=MARGIN y2=MARGIN
-    
-    #Vertical
-   # x=MARGIN x2=MARGIN
-    #y=MARGIN Y2=WIDTH-MARGIN
-
-    
     space = math.floor((width-(MARGIN*2))/ rows)
     
+    Offset = MARGIN-1
     for row in range(rows+1):
         #draw a horizontal line with thickness of space
-        pygame.draw.line(window, rgbcolors.blueviolet, (MARGIN, MARGIN+(row * space)), (width-MARGIN, MARGIN+(row * space)))
+        pygame.draw.line(window, rgbcolors.blueviolet, (Offset, Offset+(row * space)), (width-Offset-2, Offset+(row * space)))
         for col in range(rows+1):
             #draw a vertical line with thickness of space
-            pygame.draw.line(window, rgbcolors.blueviolet, (MARGIN+(col * space), MARGIN), (MARGIN+(col * space), width-MARGIN))
+            pygame.draw.line(window, rgbcolors.blueviolet, (Offset+(col * space), Offset), (Offset+(col * space), width-Offset-2))
 
 # Draw each node to screen!
 def draw(window, board, rows, width):
@@ -80,6 +69,10 @@ def euclideanDistance(p1, p2):
     x2, y2 = p2
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
+def chebyshevDistance(p1, p2):
+    x1, y1 = p1
+    x2, y2 = p2
+    return max(abs(x1 - x2), abs(y1 - y2))
 
 
 def colorFinalPath(previous, currNode, draw):
@@ -197,18 +190,19 @@ class VideoGame:
                         end.defineEnd()
                     elif node != end and node != beginning:
                         node.defineWall()
+                        node.defineTag("wall")
                 
                 if event.type == pygame.KEYDOWN:
                     #Pressing the D Key switches between manhattan and euclidean 
                     if event.key == pygame.K_d:
-                        self.distance_method = "euclidean" if self.distance_method == "manhattan" else "manhattan"
+                        self.distance_method = "euclidean" if self.distance_method == "manhattan" else "chebyshev"
                     #only run if the beginning and end are defined.
                     if event.key == pygame.K_SPACE and beginning and end:
                         start_time = time.time()
                         for row in board:
                             for node in row:
                                 node.defineNeighbors(board)
-                                if node != beginning and node !=end:
+                                if node != beginning and node !=end and node.tag!="wall":
                                      node.color = rgbcolors.wheat
                         pathFound=astarRun(lambda: draw(window, board, row_num, width), board, beginning, end, distance=self.distance_method)
                         
@@ -228,6 +222,7 @@ class VideoGame:
                 
             pygame.display.update()    
 
+    
 class Node:
     def __init__(self,total,width,row,column):
         
@@ -244,12 +239,16 @@ class Node:
         self.row = row
         self.col = column
         self.neighbors = []
+        self.tag="empty"
 
     
     def draw(self, window):
         pygame.draw.rect(window, self.color, (self.x_pos, self.y_pos, self.width, self.width))
             
     
+    def defineTag(self, tag_type):
+        self.tag = tag_type
+        
     def defineBeginning(self):
         self.color = rgbcolors.azure4
     def defineEnd(self):
