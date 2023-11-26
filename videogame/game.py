@@ -19,7 +19,7 @@ MARGIN = 20
 def create_board(rows, width):
         board = []
         #determine the nearest whole number for space between nodes
-        space = math.floor(width / rows)
+        space = math.floor((width-(MARGIN*2))/ rows)
         #Python equivalent of foreach()
         for row in range(rows):
             board.append([])
@@ -31,20 +31,31 @@ def create_board(rows, width):
 # Use board from previous function to draw to screen using pygame
 def draw_board(rows, width, window):
     
-
-
     #determine the nearest whole number for space between nodes
-    space = math.floor(width / rows)
-    for row in range(rows):
+    
+    #SPACE
+    
+    #HORIZONTAL
+   # x=MARGIN x2=WIDTH-MARGIN
+    #y=MARGIN y2=MARGIN
+    
+    #Vertical
+   # x=MARGIN x2=MARGIN
+    #y=MARGIN Y2=WIDTH-MARGIN
+
+    
+    space = math.floor((width-(MARGIN*2))/ rows)
+    
+    for row in range(rows+1):
         #draw a horizontal line with thickness of space
-        pygame.draw.line(window, rgbcolors.blueviolet, (0, row * space), (width, row * space))
-        for col in range(rows):
+        pygame.draw.line(window, rgbcolors.blueviolet, (MARGIN, MARGIN+(row * space)), (width-MARGIN, MARGIN+(row * space)))
+        for col in range(rows+1):
             #draw a vertical line with thickness of space
-            pygame.draw.line(window, rgbcolors.blueviolet, (col * space, 0), (col * space, width))
+            pygame.draw.line(window, rgbcolors.blueviolet, (MARGIN+(col * space), MARGIN), (MARGIN+(col * space), width-MARGIN))
 
 # Draw each node to screen!
 def draw(window, board, rows, width):
-    window.fill(rgbcolors.ghost_white)
+    window.fill(rgbcolors.black)
     for row in board:
         for node in row:
             node.draw(window)
@@ -53,9 +64,12 @@ def draw(window, board, rows, width):
 
 def getMouse(mousePos, rows, width):
     yPos, xPos = mousePos
-    space = math.floor(width / rows)
-    return math.floor(yPos / space), math.floor(xPos / space)
-
+    space = math.floor((width-(MARGIN*2)) / rows)
+    print(space)
+    if MARGIN is 0:
+        return math.floor(yPos / space), math.floor(xPos / space)
+    else: 
+        return math.floor(yPos / space)-1, math.floor(xPos / space)-1
 def manhattanDistance(p1, p2):
 	x1, y1 = p1
 	x2, y2 = p2
@@ -151,6 +165,7 @@ class VideoGame:
     
     def run(self, window, width):
         """Run the game; the main game loop."""
+        
         row_num = 40
         board = create_board(row_num, width)
         beginning = None
@@ -166,7 +181,13 @@ class VideoGame:
                 if pygame.mouse.get_pressed()[0]:
                     pos = pygame.mouse.get_pos()
                     row, col = getMouse(pos, row_num, width)
+                    
+                    if(row==-1 or col==-1 or row>len(board)-1 or col>len(board[0])-1):
+                        break;
+                    print(row, col)
+          
                     node = board[row][col]
+            
                     if not beginning:
                         beginning = node
                         beginning.defineBeginning()
@@ -199,8 +220,8 @@ class VideoGame:
                 
                 
             if self.duration_text:
-                text_surface = self.font.render(self.duration_text, True, (255, 255, 255))
-                window.blit(text_surface, (5,5))    
+                text_surface = self.font.render(self.duration_text, True, rgbcolors.red)
+                window.blit(text_surface, (0,0))    
                 
             pygame.display.update()    
 
@@ -209,16 +230,22 @@ class Node:
         
         self.x_pos = width * row
         self.y_pos = width * column
+        
+        if MARGIN is not 0:            
+            self.x_pos = width * (row+1)
+            self.y_pos = width * (column+1)
+
         self.width = width
         self.color = rgbcolors.wheat
         self.row_total = total
         self.row = row
         self.col = column
         self.neighbors = []
+
     
     def draw(self, window):
         pygame.draw.rect(window, self.color, (self.x_pos, self.y_pos, self.width, self.width))
-    
+            
     
     def defineBeginning(self):
         self.color = rgbcolors.azure4
