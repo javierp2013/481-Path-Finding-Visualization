@@ -8,6 +8,7 @@ import time
 import pygame.font
 from videogame import rgbcolors
 from queue import PriorityQueue
+from enum import Enum
 
 # Following basic format for boilerplate code in CPSC 386
 # TODO: Maybe move these functions into the VideoGame class?
@@ -15,6 +16,20 @@ from queue import PriorityQueue
 # Strategy for creating grid/board referenced here:
 # http://programarcadegames.com/index.php?lang=en&chapter=array_backed_grids 
 MARGIN =20
+
+
+class Algorithm(Enum):
+    MANHATTAN = 0
+    EUCLIDEAN = 1
+    CHEBYSHEV = 2
+
+
+def increment_enum(value):
+    members = list(Algorithm)
+    index = members.index(value)
+    next_index = (index + 1) % len(members)  # Wrap around if it reaches the end
+    return members[next_index]
+
 
 def create_board(rows, width):
         board = []
@@ -81,7 +96,7 @@ def colorFinalPath(previous, currNode, draw):
 		currNode.definePath()
 		draw()
 
-def astarRun(draw, board, start, end, distance="manhattan"):
+def astarRun(draw, board, start, end, distance=Algorithm.MANHATTAN):
 	count = 0
 	frontier = PriorityQueue()
 	frontier.put((0, count, start))
@@ -92,8 +107,14 @@ def astarRun(draw, board, start, end, distance="manhattan"):
 	heuristic[start] = manhattanDistance(start.getPos(), end.getPos())
     #keep track of items in priority queue
 	frontier_hash = {start}
- 
-	distanceFunction = manhattanDistance if distance == "manhattan" else euclideanDistance
+	distanceFunction = None
+
+	if distance==Algorithm.MANHATTAN:
+		distanceFunction = manhattanDistance 
+	elif distance==Algorithm.EUCLIDEAN:
+		distanceFunction = euclideanDistance
+	elif distance== Algorithm.CHEBYSHEV:
+		distanceFunction = chebyshevDistance
 
 	heuristic[start] = distanceFunction(start.getPos(), end.getPos())
 
@@ -144,8 +165,8 @@ class VideoGame:
         self.duration_text = None
         self.font = pygame.font.SysFont('Arial', 20)
         #used to switch between heurstics 
-        self.distance_method = "manhattan"
-        
+       # self.distance_method = "manhattan"
+        self.distance_method = Algorithm.MANHATTAN
         self._window_size = (window_width, window_height)
         self._clock = pygame.time.Clock()
         self._screen = pygame.display.set_mode(self._window_size)
@@ -195,7 +216,8 @@ class VideoGame:
                 if event.type == pygame.KEYDOWN:
                     #Pressing the D Key switches between manhattan and euclidean 
                     if event.key == pygame.K_d:
-                        self.distance_method = "euclidean" if self.distance_method == "manhattan" else "chebyshev"
+                        self.distance_method=increment_enum(self.distance_method)
+                  
                     #only run if the beginning and end are defined.
                     if event.key == pygame.K_SPACE and beginning and end:
                         start_time = time.time()
@@ -208,7 +230,7 @@ class VideoGame:
                         
                         duration = time.time() - start_time
                         if pathFound:
-                            self.duration_text = f"Pathfinding {self.distance_method} took {duration:.2f} seconds"
+                            self.duration_text = f"Pathfinding Algorithm took {duration:.2f} seconds"
                         else:
                             self.duration_text = "No valid path found!"
 
@@ -219,6 +241,11 @@ class VideoGame:
             if self.duration_text:
                 text_surface = self.font.render(self.duration_text, True, rgbcolors.red)
                 window.blit(text_surface, (0,0))    
+                
+            if self.distance_method:
+                algorithm_text = f"Current Algorithm: {self.distance_method.name}"
+                text_surface = self.font.render(algorithm_text, True, rgbcolors.red)
+                window.blit(text_surface, (width-300,0))    
                 
             pygame.display.update()    
 
