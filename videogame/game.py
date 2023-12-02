@@ -66,6 +66,7 @@ def draw(window, board, rows, width):
     draw_board(rows, width, window)
     pygame.display.update()
 
+#simple mouse position retrieval courtesy of pygame docs.
 def getMouse(mousePos, rows, width):
     yPos, xPos = mousePos
     space = math.floor((width-(MARGIN*2)) / rows)
@@ -74,10 +75,12 @@ def getMouse(mousePos, rows, width):
         return math.floor(yPos / space), math.floor(xPos / space)
     else: 
         return math.floor(yPos / space)-1, math.floor(xPos / space)-1
+    
+#Heuristic functions
 def manhattanDistance(p1, p2):
-	x1, y1 = p1
-	x2, y2 = p2
-	return abs(x1 - x2) + abs(y1 - y2)
+    x1, y1 = p1
+    x2, y2 = p2
+    return abs(x1 - x2) + abs(y1 - y2)
 
 def euclideanDistance(p1, p2):
     x1, y1 = p1
@@ -91,62 +94,72 @@ def chebyshevDistance(p1, p2):
 
 
 def colorFinalPath(previous, currNode, draw):
-	while currNode in previous:
-		currNode = previous[currNode]
-		currNode.definePath()
-		draw()
+    while currNode in previous:
+        currNode = previous[currNode]
+        currNode.definePath()
+        draw()
 
+#A star algorithm modified from example from lecture and wikipedia implementation in python
 def astarRun(draw, board, start, end, distance=Algorithm.MANHATTAN):
-	count = 0
-	frontier = PriorityQueue()
-	frontier.put((0, count, start))
-	previous = {}
-	pathCost = {node: float("inf") for row in board for node in row}
-	pathCost[start] = 0
-	heuristic = {node: float("inf") for row in board for node in row}
-	heuristic[start] = manhattanDistance(start.getPos(), end.getPos())
+    count = 0
+    #setup frontier priorityqueue to keep open nodes
+    frontier = PriorityQueue()
+    frontier.put((0, count, start))
+    previous = {}
+    #initialize the pathcost for each path to infinity so that it is overwritten with heuristic cost later.
+    pathCost = {node: float("inf") for row in board for node in row}
+    pathCost[start] = 0
+    heuristic = {node: float("inf") for row in board for node in row}
+    heuristic[start] = manhattanDistance(start.getPos(), end.getPos())
     #keep track of items in priority queue
-	frontier_hash = {start}
-	distanceFunction = None
-
-	if distance==Algorithm.MANHATTAN:
-		distanceFunction = manhattanDistance 
-	elif distance==Algorithm.EUCLIDEAN:
-		distanceFunction = euclideanDistance
-	elif distance== Algorithm.CHEBYSHEV:
-		distanceFunction = chebyshevDistance
-
-	heuristic[start] = distanceFunction(start.getPos(), end.getPos())
-
-	while not frontier.empty():
-        #2 gets the node since its the 3rd item in that set, preceded by heuristic and count
-		pygame.event.pump()
-		currNode = frontier.get()[2]
-		frontier_hash.remove(currNode)
+    frontier_hash = {start}
+    distanceFunction = None
+    #switch between heuristic types
+    if distance==Algorithm.MANHATTAN:
+        distanceFunction = manhattanDistance 
+    elif distance==Algorithm.EUCLIDEAN:
+        distanceFunction = euclideanDistance
+    elif distance== Algorithm.CHEBYSHEV:
+        distanceFunction = chebyshevDistance
+    #redo the starting heuristic in case the option changed
+    heuristic[start] = distanceFunction(start.getPos(), end.getPos())
+    #while there are still nodes in frontier, keep running
+    while not frontier.empty():
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+        #2 gets the node since its the 3rd item in that set, preceded by heuristic and count            
+        currNode = frontier.get()[2]
+        #its no longer in the frontier so it needs to be removed.
+        frontier_hash.remove(currNode)
         #we're done and can now draw the final path
-		if currNode == end:
-			colorFinalPath(previous, end, draw)
-			end.defineEnd()
-			return True
+        if currNode == end:
+            colorFinalPath(previous, end, draw)
+            end.defineEnd()
+            return True
           
-		for neighbor in currNode.neighbors:
+        for neighbor in currNode.neighbors:
             #since we are moving only one node ahead, we can add 1 to pathcost.
-			temp_pathCost = pathCost[currNode] + 1
+            temp_pathCost = pathCost[currNode] + 1
             #if this currNode pathcost is smaller than the neighbors, make this the path we choose
-			if temp_pathCost < pathCost[neighbor]:
-				previous[neighbor] = currNode
-				pathCost[neighbor] = temp_pathCost
-				heuristic[neighbor] = temp_pathCost + distanceFunction(neighbor.getPos(), end.getPos())				
-				if neighbor not in frontier_hash:
-					count += 1
-					frontier.put((heuristic[neighbor], count, neighbor))
-					frontier_hash.add(neighbor)
-					neighbor.open()
-		draw()
-		if currNode != start:
-			currNode.close()
+            if temp_pathCost < pathCost[neighbor]:
+                previous[neighbor] = currNode
+                pathCost[neighbor] = temp_pathCost
+                heuristic[neighbor] = temp_pathCost + distanceFunction(neighbor.getPos(), end.getPos())				
+                if neighbor not in frontier_hash:
+                    count += 1
+                    #add 1 to count and then add count to it
+                    #this prioritizes exploring nodes that were added earlier in the run
+                    #it gives it a smaller heuristic score because it was added when count was lower.
+                    frontier.put((heuristic[neighbor], count, neighbor))
+                    frontier_hash.add(neighbor)
+                    neighbor.open()
+        draw()
+        #make sure not to recolor the starting node.
+        if currNode != start:
+            currNode.close()
 
-	return False
+    return False
 
 
 
@@ -196,19 +209,20 @@ class VideoGame:
                 if pygame.mouse.get_pressed()[0]:
                     pos = pygame.mouse.get_pos()
                     row, col = getMouse(pos, row_num, width)
-                    
+                    #debugging info about node position when clicked
                     if(row==-1 or col==-1 or row>len(board)-1 or col>len(board[0])-1):
                         break
                     print(row, col)
-          
                     node = board[row][col]
-            
+                    #if beginning is undefined, set the current clicked node as beginning
                     if not beginning:
                         beginning = node
                         beginning.defineBeginning()
+                    #if end is undefined, and node is not the beginning, set the current clicked node as end
                     elif not end and node != beginning:
                         end = node
                         end.defineEnd()
+                    #now that both prev are defined, make all proceeding clicks into walls.
                     elif node != end and node != beginning:
                         node.defineWall()
                         node.defineTag("wall")
@@ -227,7 +241,7 @@ class VideoGame:
                                 if node != beginning and node !=end and node.tag!="wall":
                                      node.color = rgbcolors.wheat
                         pathFound=astarRun(lambda: draw(window, board, row_num, width), board, beginning, end, distance=self.distance_method)
-                        
+                        ##timer to keep track of the time it takes for path to be found.
                         duration = time.time() - start_time
                         if pathFound:
                             self.duration_text = f"Pathfinding Algorithm took {duration:.2f} seconds"
@@ -237,11 +251,11 @@ class VideoGame:
                 #draw(window, board, row_num, width) 
                         
                 
-                
+            #draws the timer onto screen    
             if self.duration_text:
                 text_surface = self.font.render(self.duration_text, True, rgbcolors.red)
                 window.blit(text_surface, (0,0))    
-                
+            ##draws the selected distance method to screen.
             if self.distance_method:
                 algorithm_text = f"Current Algorithm: {self.distance_method.name}"
                 text_surface = self.font.render(algorithm_text, True, rgbcolors.red)
@@ -249,7 +263,7 @@ class VideoGame:
                 
             pygame.display.update()    
 
-    
+#Node class, represented by a square on the screen
 class Node:
     def __init__(self,total,width,row,column):
         
@@ -259,7 +273,7 @@ class Node:
         if MARGIN is not 0:            
             self.x_pos = width * (row+1)
             self.y_pos = width * (column+1)
-
+        #Boilerplate attributes to keep track of location, color, and neighbors.
         self.width = width
         self.color = rgbcolors.wheat
         self.row_total = total
@@ -275,7 +289,7 @@ class Node:
     
     def defineTag(self, tag_type):
         self.tag = tag_type
-        
+    #changes color of node depending on what kind of node it is.   
     def defineBeginning(self):
         self.color = rgbcolors.azure4
     def defineEnd(self):
@@ -289,6 +303,7 @@ class Node:
     
     
         #fills out the neighbors for each node
+        #borrowed from grid traversal article on geeksforgeeks.
     def defineNeighbors(self, board):
         self.neighbors = []
         #checks neighbor to the north
@@ -298,11 +313,12 @@ class Node:
         if self.row < self.row_total - 1 and not board[self.row + 1][self.col].isWall():
             self.neighbors.append(board[self.row + 1][self.col])
         #left
-        if self.col > 0 and not board[self.row][self.col - 1].isWall(): # LEFT
+        if self.col > 0 and not board[self.row][self.col - 1].isWall():
             self.neighbors.append(board[self.row][self.col - 1])
         #right
-        if self.col < self.row_total - 1 and not board[self.row][self.col + 1].isWall(): # RIGHT
+        if self.col < self.row_total - 1 and not board[self.row][self.col + 1].isWall():
             self.neighbors.append(board[self.row][self.col + 1])
+    #simple fuctions that return position. open/close nodes as well as return bools.
     def getPos(self):
          return self.row, self.col
     def open(self):
