@@ -94,25 +94,26 @@ def chebyshevDistance(p1, p2):
 
 
 def colorFinalPath(previous, currNode, draw):
+    ##go backwards through previous list and color it to make final path.
     while currNode in previous:
         currNode = previous[currNode]
         currNode.definePath()
         draw()
 
 #A star algorithm modified from example from lecture and wikipedia implementation in python
-def astarRun(draw, board, start, end, distance=Algorithm.MANHATTAN):
+def astarRun(draw, board, beginning, end, distance=Algorithm.MANHATTAN):
     count = 0
     #setup frontier priorityqueue to keep open nodes
     frontier = PriorityQueue()
-    frontier.put((0, count, start))
-    previous = {}
+    frontier.put((0, count, beginning))
     #initialize the pathcost for each path to infinity so that it is overwritten with heuristic cost later.
     pathCost = {node: float("inf") for row in board for node in row}
-    pathCost[start] = 0
+    pathCost[beginning] = 0
     heuristic = {node: float("inf") for row in board for node in row}
-    heuristic[start] = manhattanDistance(start.getPos(), end.getPos())
+    heuristic[beginning] = manhattanDistance(beginning.getPos(), end.getPos())
+    previous = {}
     #keep track of items in priority queue
-    frontier_hash = {start}
+    frontier_hash = {beginning}
     distanceFunction = None
     #switch between heuristic types
     if distance==Algorithm.MANHATTAN:
@@ -121,13 +122,10 @@ def astarRun(draw, board, start, end, distance=Algorithm.MANHATTAN):
         distanceFunction = euclideanDistance
     elif distance== Algorithm.CHEBYSHEV:
         distanceFunction = chebyshevDistance
-    #redo the starting heuristic in case the option changed
-    heuristic[start] = distanceFunction(start.getPos(), end.getPos())
+    #redo the beginning heuristic in case the option changed
+    heuristic[beginning] = distanceFunction(beginning.getPos(), end.getPos())
     #while there are still nodes in frontier, keep running
     while not frontier.empty():
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
         #2 gets the node since its the 3rd item in that set, preceded by heuristic and count            
         currNode = frontier.get()[2]
         #its no longer in the frontier so it needs to be removed.
@@ -137,26 +135,30 @@ def astarRun(draw, board, start, end, distance=Algorithm.MANHATTAN):
             colorFinalPath(previous, end, draw)
             end.defineEnd()
             return True
-          
-        for neighbor in currNode.neighbors:
+        #go through all adjacent nodes and determine if its a better path in terms of cost
+        for adjacent in currNode.adjacents:
             #since we are moving only one node ahead, we can add 1 to pathcost.
             temp_pathCost = pathCost[currNode] + 1
-            #if this currNode pathcost is smaller than the neighbors, make this the path we choose
-            if temp_pathCost < pathCost[neighbor]:
-                previous[neighbor] = currNode
-                pathCost[neighbor] = temp_pathCost
-                heuristic[neighbor] = temp_pathCost + distanceFunction(neighbor.getPos(), end.getPos())				
-                if neighbor not in frontier_hash:
+            #if this currNode pathcost is smaller than the adjacents, make this the path we choose
+            if temp_pathCost < pathCost[adjacent]:
+                previous[adjacent] = currNode
+                pathCost[adjacent] = temp_pathCost
+                heuristic[adjacent] = temp_pathCost + distanceFunction(adjacent.getPos(), end.getPos())		
+                #if adjacent node is not in frontier, add it with order.		
+                if adjacent not in frontier_hash:
                     count += 1
                     #add 1 to count and then add count to it
                     #this prioritizes exploring nodes that were added earlier in the run
                     #it gives it a smaller heuristic score because it was added when count was lower.
-                    frontier.put((heuristic[neighbor], count, neighbor))
-                    frontier_hash.add(neighbor)
-                    neighbor.open()
+                    frontier.put((heuristic[adjacent], count, adjacent))
+                    frontier_hash.add(adjacent)
+                    adjacent.open()
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT:
+                        pygame.quit()
         draw()
-        #make sure not to recolor the starting node.
-        if currNode != start:
+        #make sure not to recolor the beginning node.
+        if currNode != beginning:
             currNode.close()
 
     return False
@@ -237,7 +239,7 @@ class VideoGame:
                         start_time = time.time()
                         for row in board:
                             for node in row:
-                                node.defineNeighbors(board)
+                                node.defineAdjacents(board)
                                 if node != beginning and node !=end and node.tag!="wall":
                                      node.color = rgbcolors.wheat
                         pathFound=astarRun(lambda: draw(window, board, row_num, width), board, beginning, end, distance=self.distance_method)
@@ -273,13 +275,13 @@ class Node:
         if MARGIN is not 0:            
             self.x_pos = width * (row+1)
             self.y_pos = width * (column+1)
-        #Boilerplate attributes to keep track of location, color, and neighbors.
+        #Boilerplate attributes to keep track of location, color, and adjacents.
         self.width = width
         self.color = rgbcolors.wheat
         self.row_total = total
         self.row = row
         self.col = column
-        self.neighbors = []
+        self.adjacents = []
         self.tag="empty"
 
     
@@ -302,22 +304,22 @@ class Node:
          self.color = rgbcolors.green4
     
     
-        #fills out the neighbors for each node
-        #borrowed from grid traversal article on geeksforgeeks.
-    def defineNeighbors(self, board):
-        self.neighbors = []
-        #checks neighbor to the north
+        #fills out the adjacents for each node
+        #adapted from grid traversal article on geeksforgeeks.
+    def defineAdjacents(self, board):
+        self.adjacents = []
+        #checks adjacent to the north
         if self.row > 0 and not board[self.row - 1][self.col].isWall():
-            self.neighbors.append(board[self.row - 1][self.col])
+            self.adjacents.append(board[self.row - 1][self.col])
         #south
         if self.row < self.row_total - 1 and not board[self.row + 1][self.col].isWall():
-            self.neighbors.append(board[self.row + 1][self.col])
+            self.adjacents.append(board[self.row + 1][self.col])
         #left
         if self.col > 0 and not board[self.row][self.col - 1].isWall():
-            self.neighbors.append(board[self.row][self.col - 1])
+            self.adjacents.append(board[self.row][self.col - 1])
         #right
         if self.col < self.row_total - 1 and not board[self.row][self.col + 1].isWall():
-            self.neighbors.append(board[self.row][self.col + 1])
+            self.adjacents.append(board[self.row][self.col + 1])
     #simple fuctions that return position. open/close nodes as well as return bools.
     def getPos(self):
          return self.row, self.col
